@@ -16,32 +16,30 @@ Features
 Requirements
 ------------
 
-In order to build sxlock you need the Xlib header files and PAM.
+ - libx11 (Xlib headers)
+ - libxext (X11 extensions library, for DPMS)
+ - PAM
 
 
 Installation
 ------------
 
-Arch Linux users can install this package from the AUR(http://aur.archlinux.org/packages.php?ID=44802).
+Arch Linux users can install this package from the [AUR](https://aur.archlinux.org/packages/sxlock-git/).
 
-Manual installation:
-Edit config.mk to match your local setup (sxlock is installed into
-the /usr/local namespace by default).
+For manual installation just install dependencies, checkout and make:
 
-Afterwards enter the following command to build and install sxlock
-(if necessary as root):
-
-    make clean install
+    git clone git://github.com/lahwaacz/sxlock.git
+    cd ./sxlock
+    make
+    ./sxlock
 
 
 Running sxlock
 -------------
 
-Simply invoking the sxlock command starts the display locker with default
-settings.
+Simply invoking the sxlock command starts the display locker with default settings.
 
 Custom settings:
 
--f <font description>: modify the font.
--c <password characters>: modify the characters displayed when the user enters his password. This can be a sequence of characters to create a fake password.
-
+    -f <font description>: modify the font.
+    -c <password characters>: modify the characters displayed when the user enters his password. This can be a sequence of characters to create a fake password.
