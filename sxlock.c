@@ -1,20 +1,20 @@
 /*
  * MIT/X Consortium License
- * 
+ *
  * © 2013 Jakub Klinkovský <kuba.klinkovsky at gmail dot com>
  * © 2010-2011 Ben Ruijl
  * © 2006-2008 Anselm R Garbe <garbeam at gmail dot com>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
  * and/or sell copies of the Software, and to permit persons to whom the
  * Software is furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
@@ -34,7 +34,7 @@
 #include <signal.h>
 #include <sys/mman.h>   // mlock()
 #include <ctype.h>      // iscntrl()
-#include <errno.h> 
+#include <errno.h>
 #include <X11/keysym.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -54,7 +54,7 @@ static int conv_callback(int num_msgs, const struct pam_message **msg, struct pa
 /* need globals for signal handling */
 Display *dpy;
 Dpms dpms_original = { .state = True, .level = 0, .standby = 600, .suspend = 600, .off = 600 };  // holds original values
-Dpms dpms_new = { .state = True, .level = 0, .standby = 10, .suspend = 10, .off = 10 };      // holds program values
+int dpms_timeout = 10;  // dpms timeout until program exits
 Bool using_dpms;
 
 pam_handle_t *pam_handle;
@@ -133,8 +133,8 @@ handle_signal(int sig) {
 int
 main(int argc, char **argv) {
     char curs[] = {0, 0, 0, 0, 0, 0, 0, 0};
-    char buf[32], passdisp[256];
-    int num, screen, width, height, sleepmode;
+    char passdisp[256];
+    int screen, width, height, sleepmode;
 
     unsigned int len;
     Bool running = True;
@@ -143,16 +143,16 @@ main(int argc, char **argv) {
     Pixmap pmap;
     Window root, w;
     XColor black, red, dummy;
-    XEvent ev;
+    XEvent event;
     XSetWindowAttributes wa;
     XFontStruct* font;
-    GC gc; 
+    GC gc;
     XGCValues values;
 
     // defaults
     char* passchar = "*";
     char* fontname = "-*-dejavu sans-bold-r-*-*-*-420-100-100-*-*-iso8859-1";
-    char* username = ""; 
+    char* username = "";
 
     if ((username = getenv("USER")) == NULL)
         die("USER environment variable not set, please set it.\n");
@@ -167,26 +167,26 @@ main(int argc, char **argv) {
 
     for (int i = 0; i < argc; i++) {
         if (!strcmp(argv[i], "-c")) {
-            if (i + 1 < argc) 
+            if (i + 1 < argc)
                 passchar = argv[i + 1];
             else
                 die("error: no password character given.\n");
         } else
         if (!strcmp(argv[i], "-f")) {
-            if (i + 1 < argc) 
+            if (i + 1 < argc)
                 fontname = argv[i + 1];
             else
                 die("error: font not specified.\n");
         } else
-        if (!strcmp(argv[i], "-v")) 
+        if (!strcmp(argv[i], "-v"))
             die(PROGNAME"-"VERSION", © 2013 Jakub Klinkovský\n");
-        else 
-        if (!strcmp(argv[i], "?")) 
+        else
+        if (!strcmp(argv[i], "?"))
             die("usage: "PROGNAME" [-v] [-c passchars] [-f fontname]\n");
     }
 
     /* fill with password characters */
-    for (int i = 0; i < sizeof passdisp; i+= strlen(passchar)) 
+    for (int i = 0; i < sizeof passdisp; i += strlen(passchar))
         for (int j = 0; j < strlen(passchar); j++)
             passdisp[i + j] = passchar[j];
 
@@ -214,7 +214,7 @@ main(int argc, char **argv) {
     XDefineCursor(dpy, w, invisible);
     XMapRaised(dpy, w);
 
-    
+
     if (!(font = XLoadQueryFont(dpy, fontname)))
         die("error: could not find font. Try using a full description.\n");
 
@@ -257,7 +257,7 @@ main(int argc, char **argv) {
         DPMSInfo(dpy, &dpms_original.level, &dpms_original.state);
 
         /* set program specific dpms timeouts */
-        DPMSSetTimeouts(dpy, dpms_new.standby, dpms_new.suspend, dpms_new.off);
+        DPMSSetTimeouts(dpy, dpms_timeout, dpms_timeout, dpms_timeout);
 
         /* force dpms enabled until exit */
         DPMSEnable(dpy);
@@ -269,7 +269,7 @@ main(int argc, char **argv) {
     sleepmode = False;
 
     /* main event loop */
-    while(running && !XNextEvent(dpy, &ev)) {
+    while(running && !XNextEvent(dpy, &event)) {
         if (sleepmode && using_dpms)
             DPMSForceLevel(dpy, DPMSModeOff);
 
@@ -283,34 +283,25 @@ main(int argc, char **argv) {
         y = (height + ascent - descent) / 2;
 
         XDrawLine(dpy, w, gc, width * 3 / 8 , y - ascent - 10, width * 5 / 8, y - ascent - 10);
-        XDrawString(dpy,w,gc, (width - XTextWidth(font, username, strlen(username))) / 2, y - ascent - 20, username, strlen(username));
-        XDrawString(dpy,w,gc, x, y, passdisp, len);
+        XDrawString(dpy, w, gc, (width - XTextWidth(font, username, strlen(username))) / 2, y - ascent - 20, username, strlen(username));
+        XDrawString(dpy, w, gc, x, y, passdisp, len);
 
         XSetWindowBackground(dpy, w, black.pixel);
         /* update window -- end block */
 
-        if (ev.type == MotionNotify) {
+        if (event.type == MotionNotify) {
             sleepmode = False;
         }
 
-        if (ev.type == KeyPress) {
+        if (event.type == KeyPress) {
             sleepmode = False;
 
-            buf[0] = 0;
-            num = XLookupString(&ev.xkey, buf, sizeof buf, &ksym, 0);
-            if (IsKeypadKey(ksym)) {
-                if (ksym == XK_KP_Enter)
-                    ksym = XK_Return;
-                else if (ksym >= XK_KP_0 && ksym <= XK_KP_9)
-                    ksym = (ksym - XK_KP_0) + XK_0;
-            }
-            if (IsFunctionKey(ksym) || IsKeypadKey(ksym)
-                    || IsMiscFunctionKey(ksym) || IsPFKey(ksym)
-                    || IsPrivateKeypadKey(ksym))
-                continue;
+            char inputChar = 0;
+            XLookupString(&event.xkey, &inputChar, sizeof(inputChar), &ksym, 0);
 
             switch (ksym) {
                 case XK_Return:
+                case XK_KP_Enter:
                     password[len] = 0;
                     if (pam_authenticate(pam_handle, 0) == PAM_SUCCESS) {
                         clear_password_memory();
@@ -330,9 +321,9 @@ main(int argc, char **argv) {
                         --len;
                     break;
                 default:
-                    if (num && !iscntrl((int) buf[0]) && (len + num < sizeof password)) { 
-                        memcpy(password + len, buf, num);
-                        len += num;
+                    if (isprint(inputChar) && (len + sizeof(inputChar) < sizeof password)) {
+                        memcpy(password + len, &inputChar, sizeof(inputChar));
+                        len += sizeof(inputChar);
                     }
                     break;
             }
