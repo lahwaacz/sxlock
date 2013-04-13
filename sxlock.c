@@ -273,21 +273,22 @@ main(int argc, char **argv) {
         if (sleepmode && using_dpms)
             DPMSForceLevel(dpy, DPMSModeOff);
 
-        /* update window */
-        int x, y, dir, ascent, descent;
-        XCharStruct overall;
+        /* update window if no events pending */
+        if (!XPending(dpy)) {
+            int x, y, dir, ascent, descent;
+            XCharStruct overall;
 
-        XClearWindow(dpy, w);
-        XTextExtents (font, passdisp, len, &dir, &ascent, &descent, &overall);
-        x = (width - overall.width) / 2;
-        y = (height + ascent - descent) / 2;
+            XClearWindow(dpy, w);
+            XTextExtents (font, passdisp, len, &dir, &ascent, &descent, &overall);
+            x = (width - overall.width) / 2;
+            y = (height + ascent - descent) / 2;
 
-        XDrawLine(dpy, w, gc, width * 3 / 8 , y - ascent - 10, width * 5 / 8, y - ascent - 10);
-        XDrawString(dpy, w, gc, (width - XTextWidth(font, username, strlen(username))) / 2, y - ascent - 20, username, strlen(username));
-        XDrawString(dpy, w, gc, x, y, passdisp, len);
+            XDrawLine(dpy, w, gc, width * 3 / 8 , y - ascent - 10, width * 5 / 8, y - ascent - 10);
+            XDrawString(dpy, w, gc, (width - XTextWidth(font, username, strlen(username))) / 2, y - ascent - 20, username, strlen(username));
+            XDrawString(dpy, w, gc, x, y, passdisp, len);
 
-        XSetWindowBackground(dpy, w, black.pixel);
-        /* update window -- end block */
+            XSetWindowBackground(dpy, w, black.pixel);
+        }
 
         if (event.type == MotionNotify) {
             sleepmode = False;
