@@ -134,15 +134,14 @@ int
 main(int argc, char **argv) {
     char curs[] = {0, 0, 0, 0, 0, 0, 0, 0};
     char passdisp[256];
-    int screen, width, height, sleepmode;
+    int screen, width, height;
 
     unsigned int len;
-    Bool running = True;
     Cursor invisible;
     KeySym ksym;
     Pixmap pmap;
     Window root, w;
-    XColor black, red, dummy;
+    XColor black, red, dummy, white;
     XEvent event;
     XSetWindowAttributes wa;
     XFontStruct* font;
@@ -209,6 +208,7 @@ main(int argc, char **argv) {
 
     XAllocNamedColor(dpy, DefaultColormap(dpy, screen), "orange red", &red, &dummy);
     XAllocNamedColor(dpy, DefaultColormap(dpy, screen), "black", &black, &dummy);
+    XAllocNamedColor(dpy, DefaultColormap(dpy, screen), "white", &white, &dummy);
     pmap = XCreateBitmapFromData(dpy, w, curs, 8, 8);
     invisible = XCreatePixmapCursor(dpy, pmap, pmap, &black, &black, 0, 0);
     XDefineCursor(dpy, w, invisible);
@@ -220,7 +220,7 @@ main(int argc, char **argv) {
 
     gc = XCreateGC(dpy, w, (unsigned long)0, &values);
     XSetFont(dpy, gc, font->fid);
-    XSetForeground(dpy, gc, XWhitePixel(dpy, screen));
+    XSetForeground(dpy, gc, white.pixel);
 
     /* grab pointer and keyboard */
     len = 1000;
@@ -264,9 +264,24 @@ main(int argc, char **argv) {
     }
 
 
+    /* define base coordinates - middle of screen */
+    int base_x = width / 2;
+    int base_y = height / 2;    /* y-position of the line */
+
+    /* font properties */
+    int ascent, descent;
+    {
+        int dir;
+        XCharStruct overall;
+        XTextExtents (font, passdisp, strlen(username), &dir, &ascent, &descent, &overall);
+    }
+
+
     len = 0;
     XSync(dpy, False);
-    sleepmode = False;
+    Bool running = True;
+    Bool sleepmode = False;
+    Bool failed = False;
 
     /* main event loop */
     while(running && !XNextEvent(dpy, &event)) {
@@ -275,27 +290,35 @@ main(int argc, char **argv) {
 
         /* update window if no events pending */
         if (!XPending(dpy)) {
-            int x, y, dir, ascent, descent;
-            XCharStruct overall;
+            int x;
+            /* draw username and line */
+            x = base_x - XTextWidth(font, username, strlen(username)) / 2;
+            XDrawString(dpy, w, gc, x, base_y - 10, username, strlen(username));
+            XDrawLine(dpy, w, gc, width * 3 / 8, base_y, width * 5 / 8, base_y);
 
-            XClearWindow(dpy, w);
-            XTextExtents (font, passdisp, len, &dir, &ascent, &descent, &overall);
-            x = (width - overall.width) / 2;
-            y = (height + ascent - descent) / 2;
+            /* clear old passdisp */
+            XClearArea(dpy, w, 0, base_y + 20, width, ascent + descent, False);
 
-            XDrawLine(dpy, w, gc, width * 3 / 8 , y - ascent - 10, width * 5 / 8, y - ascent - 10);
-            XDrawString(dpy, w, gc, (width - XTextWidth(font, username, strlen(username))) / 2, y - ascent - 20, username, strlen(username));
-            XDrawString(dpy, w, gc, x, y, passdisp, len);
-
-            XSetWindowBackground(dpy, w, black.pixel);
+            /* draw new passdisp or 'auth failed' */
+            if (failed) {
+                x = base_x - XTextWidth(font, "authentication failed", 21) / 2;
+                XSetForeground(dpy, gc, red.pixel);
+                XDrawString(dpy, w, gc, x, base_y + ascent + 20, "authentication failed", 21);
+                XSetForeground(dpy, gc, white.pixel);
+            } else {
+                x = base_x - XTextWidth(font, passdisp, len) / 2;
+                XDrawString(dpy, w, gc, x, base_y + ascent + 20, passdisp, len);
+            }
         }
 
         if (event.type == MotionNotify) {
             sleepmode = False;
+            failed = False;
         }
 
         if (event.type == KeyPress) {
             sleepmode = False;
+            failed = False;
 
             char inputChar = 0;
             XLookupString(&event.xkey, &inputChar, sizeof(inputChar), &ksym, 0);
@@ -306,10 +329,9 @@ main(int argc, char **argv) {
                     password[len] = 0;
                     if (pam_authenticate(pam_handle, 0) == PAM_SUCCESS) {
                         clear_password_memory();
-                        running = 0;
+                        running = False;
                     } else {
-                        // change background on wrong password
-                        XSetWindowBackground(dpy, w, red.pixel);
+                        failed = True;
                     }
                     len = 0;
                     break;
