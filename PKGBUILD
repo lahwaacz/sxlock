@@ -1,7 +1,8 @@
 # Maintainer: Jakub Klinkovský <kuba.klinkovsky@gmail.com>
 
 pkgname=sxlock-git
-pkgver=20130223
+_pkgname=sxlock
+pkgver=v1.0
 pkgrel=1
 pkgdesc="Simple screen locker utility for X, fork of sflock. Uses PAM authentication, no suid needed."
 arch=('i686' 'x86_64')
@@ -9,33 +10,23 @@ url="https://github.com/lahwaacz/sxlock"
 license=('MIT')
 depends=('libxext')
 makedepends=('git')
+source=('git://github.com/lahwaacz/sxlock.git')
+md5sums=('SKIP')
 
-_gitroot="git://github.com/lahwaacz/sxlock.git"
-_gitname="sxlock"
+pkgver() {
+  cd "$_pkgname"
+  git describe --always | sed 's|-|.|g'
+}
 
 build() {
-  cd "$srcdir"
-  msg "Connecting to GIT server...."
-
-  if [[ -d "$_gitname" ]]; then
-    cd "$_gitname" && git pull origin
-    msg "The local files are updated."
-  else
-    git clone "$_gitroot" "$_gitname"
-  fi
-
-  msg "GIT checkout done or server timeout"
-  msg "Starting build..."
-
-  rm -rf "$srcdir/$_gitname-build"
-  git clone "$srcdir/$_gitname" "$srcdir/$_gitname-build"
-  cd "$srcdir/$_gitname-build"
-  
+  cd "$_pkgname"
   make
 }
 
 package() {
-  cd "$srcdir/$_gitname"
+  cd "$_pkgname"
   make DESTDIR="$pkgdir" install
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
+
+# vim:set ts=2 sw=2 et:
