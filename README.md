@@ -11,13 +11,15 @@ Features
  - provides basic user feedback
  - uses PAM
  - sets DPMS timeout to 10 seconds, before exit restores original settings
+ - basic RandR support (drawing centered on the primary output)
 
 
 Requirements
 ------------
 
- - libx11 (Xlib headers)
- - libxext (X11 extensions library, for DPMS)
+ - libX11 (Xlib headers)
+ - libXext (X11 extensions library, for DPMS)
+ - libXrandr (RandR support)
  - PAM
 
 
