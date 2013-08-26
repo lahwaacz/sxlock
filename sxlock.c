@@ -153,6 +153,10 @@ main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char pas
     int base_x = info->output_x + info->output_width / 2;
     int base_y = info->output_y + info->output_height / 2;    /* y-position of the line */
 
+    /* not changed in the loop */
+    int line_x_left = base_x - info->output_width / 8;
+    int line_x_right = base_x + info->output_width / 8;
+
     /* font properties */
     int ascent, descent;
     {
@@ -172,7 +176,7 @@ main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char pas
             /* draw username and line */
             x = base_x - XTextWidth(font, username, strlen(username)) / 2;
             XDrawString(dpy, w, gc, x, base_y - 10, username, strlen(username));
-            XDrawLine(dpy, w, gc, info->output_width * 3 / 8, base_y, info->output_width * 5 / 8, base_y);
+            XDrawLine(dpy, w, gc, line_x_left, base_y, line_x_right, base_y);
 
             /* clear old passdisp */
             XClearArea(dpy, w, info->output_x, base_y + 20, info->output_width, ascent + descent, False);
@@ -235,7 +239,7 @@ main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char pas
 int
 main(int argc, char **argv) {
     char passdisp[256];
-    int screen;
+    int screen_num;
     WindowPositionInfo info;
 
     Cursor invisible;
@@ -294,21 +298,32 @@ main(int argc, char **argv) {
     if (!(font = XLoadQueryFont(dpy, fontname)))
         die("error: could not find font. Try using a full description.\n");
 
-    screen = DefaultScreen(dpy);
+    screen_num = DefaultScreen(dpy);
     root = DefaultRootWindow(dpy);
 
     /* get display/output size and position */
-    info.display_width = DisplayWidth(dpy, screen);
-    info.display_height = DisplayHeight(dpy, screen);
-    info.output_x = 0;
-    info.output_y = 0;
-    info.output_width = info.display_width;
-    info.output_height = info.display_height;
+    {
+        XRRScreenResources* screen = XRRGetScreenResources (dpy, DefaultRootWindow(dpy));
+        RROutput primary = XRRGetOutputPrimary(dpy, DefaultRootWindow(dpy));
+        XRROutputInfo* output_info = XRRGetOutputInfo(dpy, screen, primary);
+        XRRCrtcInfo* crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
+
+        info.output_x = crtc_info->x;
+        info.output_y = crtc_info->y;
+        info.output_width = crtc_info->width;
+        info.output_height = crtc_info->height;
+        info.display_width = DisplayWidth(dpy, screen_num);
+        info.display_height = DisplayHeight(dpy, screen_num);
+
+        XRRFreeScreenResources(screen);
+        XRRFreeOutputInfo(output_info);
+        XRRFreeCrtcInfo(crtc_info);
+    }
 
     /* allocate colors */
     {
         XColor dummy;
-        Colormap cmap = DefaultColormap(dpy, screen);
+        Colormap cmap = DefaultColormap(dpy, screen_num);
         XAllocNamedColor(dpy, cmap, "orange red", &red, &dummy);
         XAllocNamedColor(dpy, cmap, "black", &black, &dummy);
         XAllocNamedColor(dpy, cmap, "white", &white, &dummy);
@@ -320,8 +335,8 @@ main(int argc, char **argv) {
         wa.override_redirect = 1;
         wa.background_pixel = black.pixel;
         w = XCreateWindow(dpy, root, 0, 0, info.display_width, info.display_height,
-                0, DefaultDepth(dpy, screen), CopyFromParent,
-                DefaultVisual(dpy, screen), CWOverrideRedirect | CWBackPixel, &wa);
+                0, DefaultDepth(dpy, screen_num), CopyFromParent,
+                DefaultVisual(dpy, screen_num), CWOverrideRedirect | CWBackPixel, &wa);
         XMapRaised(dpy, w);
     }
 
