@@ -39,6 +39,7 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/dpms.h>
+#include <X11/extensions/Xrandr.h>
 #include <security/pam_appl.h>
 
 
@@ -47,6 +48,12 @@ typedef struct Dpms {
     CARD16 level;  // why?
     CARD16 standby, suspend, off;
 } Dpms;
+
+typedef struct WindowPositionInfo {
+    int display_width, display_height;
+    int output_x, output_y;
+    int output_width, output_height;
+} WindowPositionInfo;
 
 static int conv_callback(int num_msgs, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr);
 
@@ -130,158 +137,29 @@ handle_signal(int sig) {
     die("Caught signal; dying\n");
 }
 
-int
-main(int argc, char **argv) {
-    char curs[] = {0, 0, 0, 0, 0, 0, 0, 0};
-    char passdisp[256];
-    int screen, width, height;
-
-    unsigned int len;
-    Cursor invisible;
-    KeySym ksym;
-    Pixmap pmap;
-    Window root, w;
-    XColor black, red, dummy, white;
+void
+main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char passdisp[256], char* username, XColor black, XColor white, XColor red) {
     XEvent event;
-    XSetWindowAttributes wa;
-    XFontStruct* font;
-    GC gc;
-    XGCValues values;
+    KeySym ksym;
 
-    // defaults
-    char* passchar = "*";
-    char* fontname = "-*-dejavu sans-bold-r-*-*-*-420-100-100-*-*-iso8859-1";
-    char* username = "";
+    unsigned int len = 0;
+    Bool running = True;
+    Bool sleepmode = False;
+    Bool failed = False;
 
-    if ((username = getenv("USER")) == NULL)
-        die("USER environment variable not set, please set it.\n");
-
-    /* register signal handler function */
-    if (signal (SIGINT, handle_signal) == SIG_IGN)
-        signal (SIGINT, SIG_IGN);
-    if (signal (SIGHUP, handle_signal) == SIG_IGN)
-        signal (SIGHUP, SIG_IGN);
-    if (signal (SIGTERM, handle_signal) == SIG_IGN)
-        signal (SIGTERM, SIG_IGN);
-
-    for (int i = 0; i < argc; i++) {
-        if (!strcmp(argv[i], "-c")) {
-            if (i + 1 < argc)
-                passchar = argv[i + 1];
-            else
-                die("error: no password character given.\n");
-        } else
-        if (!strcmp(argv[i], "-f")) {
-            if (i + 1 < argc)
-                fontname = argv[i + 1];
-            else
-                die("error: font not specified.\n");
-        } else
-        if (!strcmp(argv[i], "-v"))
-            die(PROGNAME"-"VERSION", © 2013 Jakub Klinkovský\n");
-        else
-        if (!strcmp(argv[i], "?"))
-            die("usage: "PROGNAME" [-v] [-c passchars] [-f fontname]\n");
-    }
-
-    /* fill with password characters */
-    for (int i = 0; i < sizeof passdisp; i += strlen(passchar))
-        for (int j = 0; j < strlen(passchar); j++)
-            passdisp[i + j] = passchar[j];
-
-    /* initialize random number generator */
-    srand(time(NULL));
-
-    if (!(dpy = XOpenDisplay(0)))
-        die("cannot open dpy\n");
-
-    screen = DefaultScreen(dpy);
-    root = RootWindow(dpy, screen);
-    width = DisplayWidth(dpy, screen);
-    height = DisplayHeight(dpy, screen);
-
-    wa.override_redirect = 1;
-    wa.background_pixel = XBlackPixel(dpy, screen);
-    w = XCreateWindow(dpy, root, 0, 0, width, height,
-            0, DefaultDepth(dpy, screen), CopyFromParent,
-            DefaultVisual(dpy, screen), CWOverrideRedirect | CWBackPixel, &wa);
-
-    XAllocNamedColor(dpy, DefaultColormap(dpy, screen), "orange red", &red, &dummy);
-    XAllocNamedColor(dpy, DefaultColormap(dpy, screen), "black", &black, &dummy);
-    XAllocNamedColor(dpy, DefaultColormap(dpy, screen), "white", &white, &dummy);
-    pmap = XCreateBitmapFromData(dpy, w, curs, 8, 8);
-    invisible = XCreatePixmapCursor(dpy, pmap, pmap, &black, &black, 0, 0);
-    XDefineCursor(dpy, w, invisible);
-    XMapRaised(dpy, w);
-
-
-    if (!(font = XLoadQueryFont(dpy, fontname)))
-        die("error: could not find font. Try using a full description.\n");
-
-    gc = XCreateGC(dpy, w, (unsigned long)0, &values);
-    XSetFont(dpy, gc, font->fid);
-    XSetForeground(dpy, gc, white.pixel);
-
-    /* grab pointer and keyboard */
-    len = 1000;
-    while (len-- > 0) {
-        if (XGrabPointer(dpy, root, False, ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
-                    GrabModeAsync, GrabModeAsync, None, invisible, CurrentTime) == GrabSuccess)
-            break;
-        usleep(50);
-    }
-    while (len-- > 0) {
-        if (XGrabKeyboard(dpy, root, True, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
-            break;
-        usleep(50);
-    }
-    if (len <= 0)
-        die("Cannot grab pointer/keyboard");
-
-    /* set up PAM */
-    int ret = pam_start("login", username, &conv, &pam_handle);
-    if (ret != PAM_SUCCESS)
-        die("PAM: %s\n", pam_strerror(pam_handle, ret));
-
-    /* Lock the area where we store the password in memory, we don’t want it to
-     * be swapped to disk. Since Linux 2.6.9, this does not require any
-     * privileges, just enough bytes in the RLIMIT_MEMLOCK limit. */
-    if (mlock(password, sizeof(password)) != 0)
-        die("Could not lock page in memory, check RLIMIT_MEMLOCK");
-
-    /* handle dpms */
-    using_dpms = DPMSCapable(dpy);
-    if (using_dpms) {
-        /* save dpms timeouts to restore on exit */
-        DPMSGetTimeouts(dpy, &dpms_original.standby, &dpms_original.suspend, &dpms_original.off);
-        DPMSInfo(dpy, &dpms_original.level, &dpms_original.state);
-
-        /* set program specific dpms timeouts */
-        DPMSSetTimeouts(dpy, dpms_timeout, dpms_timeout, dpms_timeout);
-
-        /* force dpms enabled until exit */
-        DPMSEnable(dpy);
-    }
-
+    XSync(dpy, False);
 
     /* define base coordinates - middle of screen */
-    int base_x = width / 2;
-    int base_y = height / 2;    /* y-position of the line */
+    int base_x = info->output_x + info->output_width / 2;
+    int base_y = info->output_y + info->output_height / 2;    /* y-position of the line */
 
     /* font properties */
     int ascent, descent;
     {
         int dir;
         XCharStruct overall;
-        XTextExtents (font, passdisp, strlen(username), &dir, &ascent, &descent, &overall);
+        XTextExtents(font, passdisp, strlen(username), &dir, &ascent, &descent, &overall);
     }
-
-
-    len = 0;
-    XSync(dpy, False);
-    Bool running = True;
-    Bool sleepmode = False;
-    Bool failed = False;
 
     /* main event loop */
     while(running && !XNextEvent(dpy, &event)) {
@@ -294,10 +172,10 @@ main(int argc, char **argv) {
             /* draw username and line */
             x = base_x - XTextWidth(font, username, strlen(username)) / 2;
             XDrawString(dpy, w, gc, x, base_y - 10, username, strlen(username));
-            XDrawLine(dpy, w, gc, width * 3 / 8, base_y, width * 5 / 8, base_y);
+            XDrawLine(dpy, w, gc, info->output_width * 3 / 8, base_y, info->output_width * 5 / 8, base_y);
 
             /* clear old passdisp */
-            XClearArea(dpy, w, 0, base_y + 20, width, ascent + descent, False);
+            XClearArea(dpy, w, info->output_x, base_y + 20, info->output_width, ascent + descent, False);
 
             /* draw new passdisp or 'auth failed' */
             if (failed) {
@@ -352,6 +230,163 @@ main(int argc, char **argv) {
             }
         }
     }
+}
+
+int
+main(int argc, char **argv) {
+    char passdisp[256];
+    int screen;
+    WindowPositionInfo info;
+
+    Cursor invisible;
+    Window root, w;
+    XColor black, red, white;
+    XFontStruct* font;
+    GC gc;
+
+    // defaults
+    char* passchar = "*";
+    char* fontname = "-*-dejavu sans-bold-r-*-*-*-420-100-100-*-*-iso8859-1";
+    char* username = "";
+
+    if ((username = getenv("USER")) == NULL)
+        die("USER environment variable not set, please set it.\n");
+
+    /* register signal handler function */
+    if (signal (SIGINT, handle_signal) == SIG_IGN)
+        signal (SIGINT, SIG_IGN);
+    if (signal (SIGHUP, handle_signal) == SIG_IGN)
+        signal (SIGHUP, SIG_IGN);
+    if (signal (SIGTERM, handle_signal) == SIG_IGN)
+        signal (SIGTERM, SIG_IGN);
+
+    for (int i = 0; i < argc; i++) {
+        if (!strcmp(argv[i], "-c")) {
+            if (i + 1 < argc)
+                passchar = argv[i + 1];
+            else
+                die("error: no password character given.\n");
+        } else
+        if (!strcmp(argv[i], "-f")) {
+            if (i + 1 < argc)
+                fontname = argv[i + 1];
+            else
+                die("error: font not specified.\n");
+        } else
+        if (!strcmp(argv[i], "-v"))
+            die(PROGNAME"-"VERSION", © 2013 Jakub Klinkovský\n");
+        else
+        if (!strcmp(argv[i], "?"))
+            die("usage: "PROGNAME" [-v] [-c passchars] [-f fontname]\n");
+    }
+
+    /* fill with password characters */
+    for (int i = 0; i < sizeof passdisp; i += strlen(passchar))
+        for (int j = 0; j < strlen(passchar); j++)
+            passdisp[i + j] = passchar[j];
+
+    /* initialize random number generator */
+    srand(time(NULL));
+
+    if (!(dpy = XOpenDisplay(NULL)))
+        die("cannot open dpy\n");
+
+    if (!(font = XLoadQueryFont(dpy, fontname)))
+        die("error: could not find font. Try using a full description.\n");
+
+    screen = DefaultScreen(dpy);
+    root = DefaultRootWindow(dpy);
+
+    /* get display/output size and position */
+    info.display_width = DisplayWidth(dpy, screen);
+    info.display_height = DisplayHeight(dpy, screen);
+    info.output_x = 0;
+    info.output_y = 0;
+    info.output_width = info.display_width;
+    info.output_height = info.display_height;
+
+    /* allocate colors */
+    {
+        XColor dummy;
+        Colormap cmap = DefaultColormap(dpy, screen);
+        XAllocNamedColor(dpy, cmap, "orange red", &red, &dummy);
+        XAllocNamedColor(dpy, cmap, "black", &black, &dummy);
+        XAllocNamedColor(dpy, cmap, "white", &white, &dummy);
+    }
+
+    /* create window */
+    {
+        XSetWindowAttributes wa;
+        wa.override_redirect = 1;
+        wa.background_pixel = black.pixel;
+        w = XCreateWindow(dpy, root, 0, 0, info.display_width, info.display_height,
+                0, DefaultDepth(dpy, screen), CopyFromParent,
+                DefaultVisual(dpy, screen), CWOverrideRedirect | CWBackPixel, &wa);
+        XMapRaised(dpy, w);
+    }
+
+    /* define cursor */
+    {
+        char curs[] = {0, 0, 0, 0, 0, 0, 0, 0};
+        Pixmap pmap = XCreateBitmapFromData(dpy, w, curs, 8, 8);
+        invisible = XCreatePixmapCursor(dpy, pmap, pmap, &black, &black, 0, 0);
+        XDefineCursor(dpy, w, invisible);
+        XFreePixmap(dpy, pmap);
+    }
+
+    /* create Graphics Context */
+    {
+        XGCValues values;
+        gc = XCreateGC(dpy, w, (unsigned long)0, &values);
+        XSetFont(dpy, gc, font->fid);
+        XSetForeground(dpy, gc, white.pixel);
+    }
+
+    /* grab pointer and keyboard */
+    int len = 1000;
+    while (len-- > 0) {
+        if (XGrabPointer(dpy, root, False, ButtonPressMask | ButtonReleaseMask | PointerMotionMask,
+                    GrabModeAsync, GrabModeAsync, None, invisible, CurrentTime) == GrabSuccess)
+            break;
+        usleep(50);
+    }
+    while (len-- > 0) {
+        if (XGrabKeyboard(dpy, root, True, GrabModeAsync, GrabModeAsync, CurrentTime) == GrabSuccess)
+            break;
+        usleep(50);
+    }
+    if (len <= 0)
+        die("Cannot grab pointer/keyboard");
+
+    /* set up PAM */
+    {
+        int ret = pam_start("login", username, &conv, &pam_handle);
+        if (ret != PAM_SUCCESS)
+            die("PAM: %s\n", pam_strerror(pam_handle, ret));
+    }
+
+    /* Lock the area where we store the password in memory, we don’t want it to
+     * be swapped to disk. Since Linux 2.6.9, this does not require any
+     * privileges, just enough bytes in the RLIMIT_MEMLOCK limit. */
+    if (mlock(password, sizeof(password)) != 0)
+        die("Could not lock page in memory, check RLIMIT_MEMLOCK");
+
+    /* handle dpms */
+    using_dpms = DPMSCapable(dpy);
+    if (using_dpms) {
+        /* save dpms timeouts to restore on exit */
+        DPMSGetTimeouts(dpy, &dpms_original.standby, &dpms_original.suspend, &dpms_original.off);
+        DPMSInfo(dpy, &dpms_original.level, &dpms_original.state);
+
+        /* set program specific dpms timeouts */
+        DPMSSetTimeouts(dpy, dpms_timeout, dpms_timeout, dpms_timeout);
+
+        /* force dpms enabled until exit */
+        DPMSEnable(dpy);
+    }
+
+    /* run main loop */
+    main_loop(w, gc, font, &info, passdisp, username, black, white, red);
 
     /* restore dpms settings */
     if (using_dpms) {
@@ -361,7 +396,6 @@ main(int argc, char **argv) {
     }
 
     XUngrabPointer(dpy, CurrentTime);
-    XFreePixmap(dpy, pmap);
     XFreeFont(dpy, font);
     XFreeGC(dpy, gc);
     XDestroyWindow(dpy, w);
