@@ -29,12 +29,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sys/mman.h>   // mlock()
-#include <ctype.h>      // iscntrl()
-#include <errno.h>
 #include <X11/keysym.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -303,10 +300,34 @@ main(int argc, char **argv) {
 
     /* get display/output size and position */
     {
-        XRRScreenResources* screen = XRRGetScreenResources (dpy, DefaultRootWindow(dpy));
-        RROutput primary = XRRGetOutputPrimary(dpy, DefaultRootWindow(dpy));
-        XRROutputInfo* output_info = XRRGetOutputInfo(dpy, screen, primary);
-        XRRCrtcInfo* crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
+        XRRScreenResources* screen = NULL;
+        RROutput output;
+        XRROutputInfo* output_info = NULL;
+        XRRCrtcInfo* crtc_info = NULL;
+
+        screen = XRRGetScreenResources (dpy, root);
+
+       if (output = XRRGetOutputPrimary(dpy, root)) {
+            output_info = XRRGetOutputInfo(dpy, screen, output);
+            crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
+            XRRFreeOutputInfo(output_info);
+        } else {
+            /* fall back to first found connected output */
+            for (int i = 0; i < screen->noutput; i++) {
+                output_info = XRRGetOutputInfo(dpy, screen, screen->outputs[i]);
+                if (output_info->connection == RR_Connected && output_info->crtc) {
+                    crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
+                    fprintf(stderr, "Warning: no primary output detected, falling back to %s.\n", output_info->name);
+                    XRRFreeOutputInfo(output_info);
+                    break;
+                }
+                XRRFreeOutputInfo(output_info);
+            }
+        }
+        XRRFreeScreenResources(screen);
+
+        if (!crtc_info)
+            die("error: no connected output detected.\n");
 
         info.output_x = crtc_info->x;
         info.output_y = crtc_info->y;
@@ -315,8 +336,6 @@ main(int argc, char **argv) {
         info.display_width = DisplayWidth(dpy, screen_num);
         info.display_height = DisplayHeight(dpy, screen_num);
 
-        XRRFreeScreenResources(screen);
-        XRRFreeOutputInfo(output_info);
         XRRFreeCrtcInfo(crtc_info);
     }
 
