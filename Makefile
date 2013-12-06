@@ -6,7 +6,7 @@
 # © 2006-2008 Anselm R. Garbe, Sander van Dijk
 
 NAME = sxlock
-VERSION = 0.1
+VERSION = 1.0
 
 CC := $(CC) -std=c99
 

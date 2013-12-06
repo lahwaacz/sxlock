@@ -29,6 +29,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>      // isprint()
+#include <time.h>       // time()
 #include <unistd.h>
 #include <signal.h>
 #include <sys/mman.h>   // mlock()
@@ -131,7 +133,7 @@ handle_signal(int sig) {
             DPMSDisable(dpy);
     }
 
-    die("Caught signal; dying\n");
+    die("Caught signal %d; dying\n", sig);
 }
 
 void
