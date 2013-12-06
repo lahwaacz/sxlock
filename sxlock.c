@@ -31,6 +31,7 @@
 #include <string.h>
 #include <ctype.h>      // isprint()
 #include <time.h>       // time()
+#include <getopt.h>     // getopt_long()
 #include <unistd.h>
 #include <signal.h>
 #include <sys/mman.h>   // mlock()
@@ -56,6 +57,11 @@ typedef struct WindowPositionInfo {
 
 static int conv_callback(int num_msgs, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr);
 
+
+/* command-line arguments */
+static char* opt_font;
+static char* opt_username;
+static char* opt_passchar;
 
 /* need globals for signal handling */
 Display *dpy;
@@ -235,8 +241,49 @@ main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char pas
     }
 }
 
+Bool
+parse_options(int argc, char** argv)
+{
+    static struct option opts[] = {
+        { "font",           required_argument, 0, 'f' },
+        { "help",           no_argument,       0, 'h' },
+        { "passchar",       required_argument, 0, 'p' },
+        { "username",       required_argument, 0, 'u' },
+        { "version",        no_argument,       0, 'v' },
+        { 0, 0, 0, 0 },
+    };
+
+    for (;;) {
+        int opt = getopt_long(argc, argv, "f:hp:u:v", opts, NULL);
+        if (opt == -1)
+            break;
+
+        switch (opt) {
+            case 'f':
+                opt_font = optarg;
+                break;
+            case 'h':
+                die("usage: "PROGNAME" [-hv] [-p passchars] [-f fontname] [-u username]\n");
+                break;
+            case 'p':
+                opt_passchar = optarg;
+                break;
+            case 'u':
+                opt_username = optarg;
+                break;
+            case 'v':
+                die(PROGNAME"-"VERSION", © 2013 Jakub Klinkovský\n");
+                break;
+            default:
+                return False;
+        }
+    }
+
+    return True;
+}
+
 int
-main(int argc, char **argv) {
+main(int argc, char** argv) {
     char passdisp[256];
     int screen_num;
     WindowPositionInfo info;
@@ -247,13 +294,18 @@ main(int argc, char **argv) {
     XFontStruct* font;
     GC gc;
 
-    // defaults
-    char* passchar = "*";
-    char* fontname = "-*-dejavu sans-bold-r-*-*-*-420-100-100-*-*-iso8859-1";
-    char* username = "";
-
+    /* get username (used for PAM authentication) */
+    char* username;
     if ((username = getenv("USER")) == NULL)
         die("USER environment variable not set, please set it.\n");
+
+    /* set default values for command-line arguments */
+    opt_passchar = "*";
+    opt_font = "-*-dejavu sans-bold-r-*-*-*-420-100-100-*-*-iso8859-1";
+    opt_username = username;
+
+    if (!parse_options(argc, argv))
+        exit(EXIT_FAILURE);
 
     /* register signal handler function */
     if (signal (SIGINT, handle_signal) == SIG_IGN)
@@ -263,30 +315,10 @@ main(int argc, char **argv) {
     if (signal (SIGTERM, handle_signal) == SIG_IGN)
         signal (SIGTERM, SIG_IGN);
 
-    for (int i = 0; i < argc; i++) {
-        if (!strcmp(argv[i], "-c")) {
-            if (i + 1 < argc)
-                passchar = argv[i + 1];
-            else
-                die("error: no password character given.\n");
-        } else
-        if (!strcmp(argv[i], "-f")) {
-            if (i + 1 < argc)
-                fontname = argv[i + 1];
-            else
-                die("error: font not specified.\n");
-        } else
-        if (!strcmp(argv[i], "-v"))
-            die(PROGNAME"-"VERSION", © 2013 Jakub Klinkovský\n");
-        else
-        if (!strcmp(argv[i], "?"))
-            die("usage: "PROGNAME" [-v] [-c passchars] [-f fontname]\n");
-    }
-
     /* fill with password characters */
-    for (int i = 0; i < sizeof passdisp; i += strlen(passchar))
-        for (int j = 0; j < strlen(passchar); j++)
-            passdisp[i + j] = passchar[j];
+    for (int i = 0; i < sizeof(passdisp); i += strlen(opt_passchar))
+        for (int j = 0; j < strlen(opt_passchar); j++)
+            passdisp[i + j] = opt_passchar[j];
 
     /* initialize random number generator */
     srand(time(NULL));
@@ -294,7 +326,7 @@ main(int argc, char **argv) {
     if (!(dpy = XOpenDisplay(NULL)))
         die("cannot open dpy\n");
 
-    if (!(font = XLoadQueryFont(dpy, fontname)))
+    if (!(font = XLoadQueryFont(dpy, opt_font)))
         die("error: could not find font. Try using a full description.\n");
 
     screen_num = DefaultScreen(dpy);
@@ -422,7 +454,7 @@ main(int argc, char **argv) {
     }
 
     /* run main loop */
-    main_loop(w, gc, font, &info, passdisp, username, black, white, red);
+    main_loop(w, gc, font, &info, passdisp, opt_username, black, white, red);
 
     /* restore dpms settings */
     if (using_dpms) {
