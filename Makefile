@@ -10,7 +10,7 @@ VERSION = 1.0
 
 CC := $(CC) -std=c99
 
-base_CFLAGS = -pedantic -Wall -Os -DPROGNAME=\"${NAME}\" -DVERSION=\"${VERSION}\"
+base_CFLAGS = -D_GNU_SOURCE -pedantic -Wall -Wextra -Os -DPROGNAME=\"${NAME}\" -DVERSION=\"${VERSION}\"
 base_LIBS = -lpam
 
 pkgs = x11 xext xrandr
