@@ -42,6 +42,11 @@
 #include <X11/extensions/Xrandr.h>
 #include <security/pam_appl.h>
 
+#ifdef __GNUC__
+    #define UNUSED(x) UNUSED_ ## x __attribute__((__unused__))
+#else
+    #define UNUSED(x) UNUSED_ ## x
+#endif
 
 typedef struct Dpms {
     BOOL state;
@@ -96,7 +101,7 @@ clear_password_memory(void) {
     /* A volatile pointer to the password buffer to prevent the compiler from
      * optimizing this out. */
     volatile char *vpassword = password;
-    for (int c = 0; c < sizeof(password); c++)
+    for (unsigned int c = 0; c < sizeof(password); c++)
         /* rewrite with random values */
         vpassword[c] = rand();
 }
@@ -106,7 +111,7 @@ clear_password_memory(void) {
  *
  */
 static int
-conv_callback(int num_msgs, const struct pam_message **msg, struct pam_response **resp, void *appdata_ptr) {
+conv_callback(int num_msgs, const struct pam_message **msg, struct pam_response **resp, void *UNUSED(appdata_ptr)) {
     if (num_msgs == 0)
         return PAM_BUF_ERR;
 
@@ -143,7 +148,7 @@ handle_signal(int sig) {
 }
 
 void
-main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char passdisp[256], char* username, XColor black, XColor white, XColor red) {
+main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char passdisp[256], char* username, XColor UNUSED(black), XColor white, XColor red) {
     XEvent event;
     KeySym ksym;
 
@@ -316,8 +321,8 @@ main(int argc, char** argv) {
         signal (SIGTERM, SIG_IGN);
 
     /* fill with password characters */
-    for (int i = 0; i < sizeof(passdisp); i += strlen(opt_passchar))
-        for (int j = 0; j < strlen(opt_passchar); j++)
+    for (unsigned int i = 0; i < sizeof(passdisp); i += strlen(opt_passchar))
+        for (unsigned int j = 0; j < strlen(opt_passchar); j++)
             passdisp[i + j] = opt_passchar[j];
 
     /* initialize random number generator */
@@ -341,7 +346,7 @@ main(int argc, char** argv) {
 
         screen = XRRGetScreenResources (dpy, root);
 
-       if (output = XRRGetOutputPrimary(dpy, root)) {
+       if ( (output = XRRGetOutputPrimary(dpy, root)) ) {
             output_info = XRRGetOutputInfo(dpy, screen, output);
             crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
             XRRFreeOutputInfo(output_info);
