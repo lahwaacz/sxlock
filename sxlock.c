@@ -306,7 +306,7 @@ main(int argc, char** argv) {
 
     /* set default values for command-line arguments */
     opt_passchar = "*";
-    opt_font = "-*-dejavu sans-bold-r-*-*-*-420-100-100-*-*-iso8859-1";
+    opt_font = "-misc-fixed-medium-r-*--17-120-*-*-*-*-iso8859-1";
     opt_username = username;
 
     if (!parse_options(argc, argv))
