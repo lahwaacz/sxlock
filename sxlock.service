@@ -1,0 +1,10 @@
+[Unit]
+Description=Lock X session using sxlock
+
+[Service]
+User=lahwaacz
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/sxlock
+
+[Install]
+WantedBy=sleep.target

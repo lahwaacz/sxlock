@@ -1,5 +1,5 @@
 # sxlock - simple X screen locker
-# © 2013 Jakub Klinkovský
+# © 2013-2014 Jakub Klinkovský
 # Based on sflock
 # © 2010-2011 Ben Ruijl
 # Based on slock
