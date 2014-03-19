@@ -45,3 +45,23 @@ Custom settings:
 
     -f <font description>: modify the font.
     -c <password characters>: modify the characters displayed when the user enters his password. This can be a sequence of characters to create a fake password.
+
+Hooking into systemd events
+---------------------------
+
+When using [systemd](http://freedesktop.org/wiki/Software/systemd/), you can use the following service (create `/etc/systemd/system/sxlock.service`) to let the system lock your X session on hibernation or suspend:
+
+```ini
+[Unit]
+Description=Lock X session using sxlock
+
+[Service]
+User=<username>
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/sxlock
+
+[Install]
+WantedBy=sleep.target
+```
+
+However, this approach is useful only for single-user systems, because there is no way to know which user is currently logged in. Use [xss-lock](https://bitbucket.org/raymonad/xss-lock) as an alternative for multi-user systems.
