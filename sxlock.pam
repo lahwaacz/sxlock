@@ -1,0 +1,6 @@
+#
+# PAM configuration file for the sxlock screen locker. By default, it includes
+# the 'system-auth' configuration file (see /etc/pam.d/system-auth)
+#
+
+auth include system-auth

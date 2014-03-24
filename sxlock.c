@@ -433,7 +433,7 @@ main(int argc, char** argv) {
 
     /* set up PAM */
     {
-        int ret = pam_start("login", username, &conv, &pam_handle);
+        int ret = pam_start("sxlock", username, &conv, &pam_handle);
         if (ret != PAM_SUCCESS)
             die("PAM: %s\n", pam_strerror(pam_handle, ret));
     }

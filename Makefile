@@ -30,3 +30,4 @@ clean:
 
 install: sxlock
 	install -Dm755 sxlock $(DESTDIR)/usr/bin/sxlock
+	install -Dm644 sxlock.pam $(DESTDIR)/etc/pam.d/sxlock
