@@ -56,7 +56,6 @@ When using [systemd](http://freedesktop.org/wiki/Software/systemd/), you can use
 Description=Lock X session using sxlock on hibernation/suspension
 After=suspend.target
 
-
 [Service]
 User=<username>
 Environment=DISPLAY=:0
