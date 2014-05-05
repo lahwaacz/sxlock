@@ -53,7 +53,9 @@ When using [systemd](http://freedesktop.org/wiki/Software/systemd/), you can use
 
 ```ini
 [Unit]
-Description=Lock X session using sxlock
+Description=Lock X session using sxlock on hibernation/suspension
+After=suspend.target
+
 
 [Service]
 User=<username>
