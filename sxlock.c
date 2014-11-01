@@ -345,28 +345,22 @@ main(int argc, char** argv) {
         XRRCrtcInfo* crtc_info = NULL;
 
         screen = XRRGetScreenResources (dpy, root);
+        output = XRRGetOutputPrimary(dpy, root);
+        output_info = XRRGetOutputInfo(dpy, screen, output);
 
-       if ( (output = XRRGetOutputPrimary(dpy, root)) ) {
-            output_info = XRRGetOutputInfo(dpy, screen, output);
-            crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
+        /* Primary output might not have been set, in which case XRRGetOutputPrimary
+         * returns the first output, regardless of its connected state.
+         */
+        int i = 0;
+        while (output_info->connection != RR_Connected || output_info->crtc == 0) {
             XRRFreeOutputInfo(output_info);
-        } else {
-            /* fall back to first found connected output */
-            for (int i = 0; i < screen->noutput; i++) {
-                output_info = XRRGetOutputInfo(dpy, screen, screen->outputs[i]);
-                if (output_info->connection == RR_Connected && output_info->crtc) {
-                    crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
-                    fprintf(stderr, "Warning: no primary output detected, falling back to %s.\n", output_info->name);
-                    XRRFreeOutputInfo(output_info);
-                    break;
-                }
-                XRRFreeOutputInfo(output_info);
-            }
+            output_info = XRRGetOutputInfo(dpy, screen, screen->outputs[i++]);
+            fprintf(stderr, "Warning: no primary output detected, trying %s.\n", output_info->name);
+            if (i == screen->noutput)
+                die("error: no connected output detected.\n");
         }
-        XRRFreeScreenResources(screen);
 
-        if (!crtc_info)
-            die("error: no connected output detected.\n");
+        crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
 
         info.output_x = crtc_info->x;
         info.output_y = crtc_info->y;
@@ -375,6 +369,8 @@ main(int argc, char** argv) {
         info.display_width = DisplayWidth(dpy, screen_num);
         info.display_height = DisplayHeight(dpy, screen_num);
 
+        XRRFreeScreenResources(screen);
+        XRRFreeOutputInfo(output_info);
         XRRFreeCrtcInfo(crtc_info);
     }
 
