@@ -287,6 +287,16 @@ parse_options(int argc, char** argv)
     return True;
 }
 
+/* auxiliary function to test if `value` exists in `array` */
+Bool
+is_value_in_array(int val, int *arr, int size){
+    for (int i = 0; i < size; i++) {
+        if (arr[i] == val)
+            return True;
+    }
+    return False;
+}
+
 int
 main(int argc, char** argv) {
     char passdisp[256];
@@ -346,11 +356,18 @@ main(int argc, char** argv) {
 
         screen = XRRGetScreenResources (dpy, root);
         output = XRRGetOutputPrimary(dpy, root);
+
+        /* When there is no primary output, the return value of XRRGetOutputPrimary
+         * is undocumented, most likely undefined (see issue #4). Fall back to the
+         * first output in this case, connected state will be checked later.
+         */
+        if (!is_value_in_array(output, (int*) screen->outputs, screen->noutput)) {
+            fprintf(stderr, "Warning: XRRGetOutputPrimary returned invalid output ID.\n");
+            output = screen->outputs[0];
+        }
         output_info = XRRGetOutputInfo(dpy, screen, output);
 
-        /* Primary output might not have been set, in which case XRRGetOutputPrimary
-         * returns the first output, regardless of its connected state.
-         */
+        /* Iterate through screen->outputs until connected output is found. */
         int i = 0;
         while (output_info->connection != RR_Connected || output_info->crtc == 0) {
             XRRFreeOutputInfo(output_info);
