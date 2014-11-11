@@ -332,7 +332,7 @@ main(int argc, char** argv) {
 
     /* fill with password characters */
     for (unsigned int i = 0; i < sizeof(passdisp); i += strlen(opt_passchar))
-        for (unsigned int j = 0; j < strlen(opt_passchar); j++)
+        for (unsigned int j = 0; j < strlen(opt_passchar) && i + j < sizeof(passdisp); j++)
             passdisp[i + j] = opt_passchar[j];
 
     /* initialize random number generator */
