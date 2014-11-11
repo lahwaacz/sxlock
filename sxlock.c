@@ -442,7 +442,7 @@ main(int argc, char** argv) {
         usleep(50);
     }
     if (len <= 0)
-        die("Cannot grab pointer/keyboard");
+        die("Cannot grab pointer/keyboard\n");
 
     /* set up PAM */
     {
@@ -455,7 +455,7 @@ main(int argc, char** argv) {
      * be swapped to disk. Since Linux 2.6.9, this does not require any
      * privileges, just enough bytes in the RLIMIT_MEMLOCK limit. */
     if (mlock(password, sizeof(password)) != 0)
-        die("Could not lock page in memory, check RLIMIT_MEMLOCK");
+        die("Could not lock page in memory, check RLIMIT_MEMLOCK\n");
 
     /* handle dpms */
     using_dpms = DPMSCapable(dpy);
