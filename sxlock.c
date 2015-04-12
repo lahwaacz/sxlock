@@ -287,16 +287,6 @@ parse_options(int argc, char** argv)
     return True;
 }
 
-/* auxiliary function to test if `value` exists in `array` */
-Bool
-is_value_in_array(int val, int *arr, int size){
-    for (int i = 0; i < size; i++) {
-        if (arr[i] == val)
-            return True;
-    }
-    return False;
-}
-
 int
 main(int argc, char** argv) {
     char passdisp[256];
@@ -358,11 +348,10 @@ main(int argc, char** argv) {
         output = XRRGetOutputPrimary(dpy, root);
 
         /* When there is no primary output, the return value of XRRGetOutputPrimary
-         * is undocumented, most likely undefined (see issue #4). Fall back to the
-         * first output in this case, connected state will be checked later.
+         * is undocumented, probably it is 0. Fall back to the first output in this
+         * case, connected state will be checked later.
          */
-        if (!is_value_in_array(output, (int*) screen->outputs, screen->noutput)) {
-            fprintf(stderr, "Warning: XRRGetOutputPrimary returned invalid output ID.\n");
+        if (output == 0) {
             output = screen->outputs[0];
         }
         output_info = XRRGetOutputInfo(dpy, screen, output);
