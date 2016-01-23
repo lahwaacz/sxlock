@@ -44,7 +44,8 @@ Simply invoking the sxlock command starts the display locker with default settin
 Custom settings:
 
     -f <font description>: modify the font.
-    -c <password characters>: modify the characters displayed when the user enters his password. This can be a sequence of characters to create a fake password.
+    -p <password characters>: modify the characters displayed when the user enters his password. This can be a sequence of characters to create a fake password.
+    -u <username>: a user name to be displayed at the lock screen.
 
 Hooking into systemd events
 ---------------------------
