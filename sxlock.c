@@ -40,6 +40,7 @@
 #include <X11/Xutil.h>
 #include <X11/extensions/dpms.h>
 #include <X11/extensions/Xrandr.h>
+#include <X11/Xft/Xft.h>
 #include <security/pam_appl.h>
 
 #ifdef __GNUC__
@@ -148,7 +149,7 @@ handle_signal(int sig) {
 }
 
 void
-main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char passdisp[256], char* username, XColor UNUSED(black), XColor white, XColor red) {
+main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* info, char passdisp[256], char* username, XftColor white, XftColor red) {
     XEvent event;
     KeySym ksym;
 
@@ -167,13 +168,8 @@ main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char pas
     int line_x_left = base_x - info->output_width / 8;
     int line_x_right = base_x + info->output_width / 8;
 
-    /* font properties */
-    int ascent, descent;
-    {
-        int dir;
-        XCharStruct overall;
-        XTextExtents(font, passdisp, strlen(username), &dir, &ascent, &descent, &overall);
-    }
+    /* text properties */
+    XGlyphInfo ext_username, ext_pass, ext_authfail;
 
     /* main event loop */
     while(running && !XNextEvent(dpy, &event)) {
@@ -183,23 +179,29 @@ main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char pas
         /* update window if no events pending */
         if (!XPending(dpy)) {
             int x;
-            /* draw username and line */
-            x = base_x - XTextWidth(font, username, strlen(username)) / 2;
-            XDrawString(dpy, w, gc, x, base_y - 10, username, strlen(username));
-            XDrawLine(dpy, w, gc, line_x_left, base_y, line_x_right, base_y);
+
+            /* clear old username */
+            XClearArea(dpy, w, info->output_x, font->ascent + font->descent, info->output_width, base_y - 10, False);
 
             /* clear old passdisp */
-            XClearArea(dpy, w, info->output_x, base_y + 20, info->output_width, ascent + descent, False);
+            XClearArea(dpy, w, info->output_x, base_y + 20, info->output_width, font->ascent + font->descent, False);
+
+            /* draw username and line */
+            XftTextExtents8(dpy, font, (XftChar8 *) username, strlen(username), &ext_username);
+            x = base_x - ext_username.width / 2;
+            XftDrawString8(xftdraw, &white, font, x, base_y - 10, (XftChar8 *) username, strlen(username));
+            XDrawLine(dpy, w, gc, line_x_left, base_y, line_x_right, base_y);
 
             /* draw new passdisp or 'auth failed' */
             if (failed) {
-                x = base_x - XTextWidth(font, "authentication failed", 21) / 2;
-                XSetForeground(dpy, gc, red.pixel);
-                XDrawString(dpy, w, gc, x, base_y + ascent + 20, "authentication failed", 21);
-                XSetForeground(dpy, gc, white.pixel);
+                char sauthfail[22]= "authentication failed";
+                XftTextExtents8(dpy, font, (XftChar8 *) sauthfail, strlen(sauthfail), &ext_authfail);
+                x = base_x - ext_authfail.width / 2;
+                XftDrawString8(xftdraw, &red, font, x, base_y + font->ascent + 20, (XftChar8 *) sauthfail, 21);
             } else {
-                x = base_x - XTextWidth(font, passdisp, len) / 2;
-                XDrawString(dpy, w, gc, x, base_y + ascent + 20, passdisp, len);
+                XftTextExtents8(dpy, font, (XftChar8 *) passdisp, len, &ext_pass);
+                x = base_x - ext_pass.width / 2;
+                XftDrawString8(xftdraw, &white, font, x, base_y + font->ascent + 20, (XftChar8 *) passdisp, len);
             }
         }
 
@@ -295,8 +297,10 @@ main(int argc, char** argv) {
 
     Cursor invisible;
     Window root, w;
-    XColor black, red, white;
-    XFontStruct* font;
+    XColor black;
+    XftColor red, white;
+    XftFont* font;
+    XftDraw* xftdraw;
     GC gc;
 
     /* get username (used for PAM authentication) */
@@ -331,7 +335,7 @@ main(int argc, char** argv) {
     if (!(dpy = XOpenDisplay(NULL)))
         die("cannot open dpy\n");
 
-    if (!(font = XLoadQueryFont(dpy, opt_font)))
+    if (!(font = XftFontOpenName(dpy, DefaultScreen(dpy), opt_font)))
         die("error: could not find font. Try using a full description.\n");
 
     screen_num = DefaultScreen(dpy);
@@ -384,9 +388,28 @@ main(int argc, char** argv) {
     {
         XColor dummy;
         Colormap cmap = DefaultColormap(dpy, screen_num);
-        XAllocNamedColor(dpy, cmap, "orange red", &red, &dummy);
         XAllocNamedColor(dpy, cmap, "black", &black, &dummy);
-        XAllocNamedColor(dpy, cmap, "white", &white, &dummy);
+    }
+
+    /* allocate Xft colors */
+    {
+        XRenderColor xrcolor;
+
+        xrcolor.red = 0xffff;
+        xrcolor.green = 0xffff;
+        xrcolor.blue = 0xffff;
+        xrcolor.alpha = 0xffff;
+
+        XftColorAllocValue(dpy, DefaultVisual(dpy, DefaultScreen(dpy)),
+                DefaultColormap(dpy, DefaultScreen(dpy)), &xrcolor, &white);
+
+        xrcolor.red = 0xffff;
+        xrcolor.green = 0x0;
+        xrcolor.blue = 0x0;
+        xrcolor.alpha = 0xffff;
+
+        XftColorAllocValue(dpy, DefaultVisual(dpy, DefaultScreen(dpy)),
+                DefaultColormap(dpy, DefaultScreen(dpy)), &xrcolor, &red);
     }
 
     /* create window */
@@ -413,8 +436,13 @@ main(int argc, char** argv) {
     {
         XGCValues values;
         gc = XCreateGC(dpy, w, (unsigned long)0, &values);
-        XSetFont(dpy, gc, font->fid);
         XSetForeground(dpy, gc, white.pixel);
+    }
+
+    /* Xft Draw */
+    {
+        xftdraw = XftDrawCreate(dpy, w, DefaultVisual(dpy, DefaultScreen(dpy)),
+                DefaultColormap(dpy, DefaultScreen(dpy)));
     }
 
     /* grab pointer and keyboard */
@@ -461,7 +489,7 @@ main(int argc, char** argv) {
     }
 
     /* run main loop */
-    main_loop(w, gc, font, &info, passdisp, opt_username, black, white, red);
+    main_loop(w, gc, xftdraw, font, &info, passdisp, opt_username, white, red);
 
     /* restore dpms settings */
     if (using_dpms) {
@@ -471,7 +499,12 @@ main(int argc, char** argv) {
     }
 
     XUngrabPointer(dpy, CurrentTime);
-    XFreeFont(dpy, font);
+    XftFontClose(dpy, font);
+    XftDrawDestroy(xftdraw);
+    XftColorFree(dpy, DefaultVisual(dpy, DefaultScreen(dpy)),
+            DefaultColormap(dpy, DefaultScreen(dpy)), &white);
+    XftColorFree(dpy, DefaultVisual(dpy, DefaultScreen(dpy)),
+            DefaultColormap(dpy, DefaultScreen(dpy)), &red);
     XFreeGC(dpy, gc);
     XDestroyWindow(dpy, w);
     XCloseDisplay(dpy);

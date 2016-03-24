@@ -13,7 +13,7 @@ CC := $(CC) -std=c99
 base_CFLAGS = -Wall -Wextra -pedantic -O2 -g
 base_LIBS = -lpam
 
-pkgs = x11 xext xrandr
+pkgs = x11 xext xrandr xft
 pkgs_CFLAGS = $(shell pkg-config --cflags $(pkgs))
 pkgs_LIBS = $(shell pkg-config --libs $(pkgs))
 
