@@ -160,6 +160,9 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
 
     XSync(dpy, False);
 
+    /* distance of text from the line */
+    int line_dist = 15;
+
     /* define base coordinates - middle of screen */
     int base_x = info->output_x + info->output_width / 2;
     int base_y = info->output_y + info->output_height / 2;    /* y-position of the line */
@@ -181,15 +184,15 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
             int x;
 
             /* clear old username */
-            XClearArea(dpy, w, info->output_x, font->ascent + font->descent, info->output_width, base_y - 10, False);
+            XClearArea(dpy, w, info->output_x, font->ascent + font->descent, info->output_width, base_y - line_dist, False);
 
             /* clear old passdisp */
-            XClearArea(dpy, w, info->output_x, base_y + 20, info->output_width, font->ascent + font->descent, False);
+            XClearArea(dpy, w, info->output_x, base_y + line_dist, info->output_width, font->ascent + font->descent, False);
 
             /* draw username and line */
             XftTextExtents8(dpy, font, (XftChar8 *) username, strlen(username), &ext_username);
             x = base_x - ext_username.width / 2;
-            XftDrawString8(xftdraw, &white, font, x, base_y - 10, (XftChar8 *) username, strlen(username));
+            XftDrawString8(xftdraw, &white, font, x, base_y - line_dist, (XftChar8 *) username, strlen(username));
             XDrawLine(dpy, w, gc, line_x_left, base_y, line_x_right, base_y);
 
             /* draw new passdisp or 'auth failed' */
@@ -197,11 +200,11 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
                 char sauthfail[22]= "authentication failed";
                 XftTextExtents8(dpy, font, (XftChar8 *) sauthfail, strlen(sauthfail), &ext_authfail);
                 x = base_x - ext_authfail.width / 2;
-                XftDrawString8(xftdraw, &red, font, x, base_y + font->ascent + 20, (XftChar8 *) sauthfail, 21);
+                XftDrawString8(xftdraw, &red, font, x, base_y + font->ascent + line_dist, (XftChar8 *) sauthfail, 21);
             } else {
                 XftTextExtents8(dpy, font, (XftChar8 *) passdisp, len, &ext_pass);
                 x = base_x - ext_pass.width / 2;
-                XftDrawString8(xftdraw, &white, font, x, base_y + font->ascent + 20, (XftChar8 *) passdisp, len);
+                XftDrawString8(xftdraw, &white, font, x, base_y + font->ascent + line_dist, (XftChar8 *) passdisp, len);
             }
         }
 
