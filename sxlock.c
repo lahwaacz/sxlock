@@ -67,6 +67,7 @@ static int conv_callback(int num_msgs, const struct pam_message **msg, struct pa
 static char* opt_font;
 static char* opt_username;
 static char* opt_passchar;
+static char  opt_hidelength;
 
 /* need globals for signal handling */
 Display *dpy;
@@ -148,7 +149,7 @@ handle_signal(int sig) {
 }
 
 void
-main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char passdisp[256], char* username, XColor UNUSED(black), XColor white, XColor red) {
+main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char passdisp[256], char* username, XColor UNUSED(black), XColor white, XColor red, Bool hidelength) {
     XEvent event;
     KeySym ksym;
 
@@ -198,8 +199,11 @@ main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char pas
                 XDrawString(dpy, w, gc, x, base_y + ascent + 20, "authentication failed", 21);
                 XSetForeground(dpy, gc, white.pixel);
             } else {
-                x = base_x - XTextWidth(font, passdisp, len) / 2;
-                XDrawString(dpy, w, gc, x, base_y + ascent + 20, passdisp, len);
+                int lendisp = len;
+                if (hidelength)
+                    lendisp += (len > 0 ? ((passdisp[len] * len) % 5) : 0);
+                x = base_x - XTextWidth(font, passdisp, lendisp) / 2;
+                XDrawString(dpy, w, gc, x, base_y + ascent + 20, passdisp, lendisp % 256);
             }
         }
 
@@ -254,12 +258,13 @@ parse_options(int argc, char** argv)
         { "help",           no_argument,       0, 'h' },
         { "passchar",       required_argument, 0, 'p' },
         { "username",       required_argument, 0, 'u' },
+        { "hidelength",     no_argument,       0, 'l' },
         { "version",        no_argument,       0, 'v' },
         { 0, 0, 0, 0 },
     };
 
     for (;;) {
-        int opt = getopt_long(argc, argv, "f:hp:u:v", opts, NULL);
+        int opt = getopt_long(argc, argv, "f:hp:u:v:l", opts, NULL);
         if (opt == -1)
             break;
 
@@ -268,13 +273,16 @@ parse_options(int argc, char** argv)
                 opt_font = optarg;
                 break;
             case 'h':
-                die("usage: "PROGNAME" [-hv] [-p passchars] [-f fontname] [-u username]\n");
+                die("usage: "PROGNAME" [-hvl] [-p passchars] [-f fontname] [-u username]\n");
                 break;
             case 'p':
                 opt_passchar = optarg;
                 break;
             case 'u':
                 opt_username = optarg;
+                break;
+            case 'l':
+                opt_hidelength = True;
                 break;
             case 'v':
                 die(PROGNAME"-"VERSION", © 2013 Jakub Klinkovský\n");
@@ -308,6 +316,7 @@ main(int argc, char** argv) {
     opt_passchar = "*";
     opt_font = "-misc-fixed-medium-r-*--17-120-*-*-*-*-iso8859-1";
     opt_username = username;
+    opt_hidelength = False;
 
     if (!parse_options(argc, argv))
         exit(EXIT_FAILURE);
@@ -461,7 +470,7 @@ main(int argc, char** argv) {
     }
 
     /* run main loop */
-    main_loop(w, gc, font, &info, passdisp, opt_username, black, white, red);
+    main_loop(w, gc, font, &info, passdisp, opt_username, black, white, red, opt_hidelength);
 
     /* restore dpms settings */
     if (using_dpms) {
