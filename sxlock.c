@@ -67,7 +67,7 @@ static int conv_callback(int num_msgs, const struct pam_message **msg, struct pa
 static char* opt_font;
 static char* opt_username;
 static char* opt_passchar;
-static char  opt_hidelength;
+static Bool  opt_hidelength;
 
 /* need globals for signal handling */
 Display *dpy;
@@ -200,8 +200,8 @@ main_loop(Window w, GC gc, XFontStruct* font, WindowPositionInfo* info, char pas
                 XSetForeground(dpy, gc, white.pixel);
             } else {
                 int lendisp = len;
-                if (hidelength)
-                    lendisp += (len > 0 ? ((passdisp[len] * len) % 5) : 0);
+                if (hidelength && len > 0)
+                    lendisp += (passdisp[len] * len) % 5;
                 x = base_x - XTextWidth(font, passdisp, lendisp) / 2;
                 XDrawString(dpy, w, gc, x, base_y + ascent + 20, passdisp, lendisp % 256);
             }
