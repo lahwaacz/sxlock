@@ -371,7 +371,7 @@ main(int argc, char** argv) {
             XRRFreeOutputInfo(output_info);
             output_info = XRRGetOutputInfo(dpy, screen, screen->outputs[i++]);
             fprintf(stderr, "Warning: no primary output detected, trying %s.\n", output_info->name);
-            if (i == screen->noutput)
+            if (i == screen->noutput + 1)
                 die("error: no connected output detected.\n");
         }
 
