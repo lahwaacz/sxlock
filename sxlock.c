@@ -264,7 +264,7 @@ parse_options(int argc, char** argv)
     };
 
     for (;;) {
-        int opt = getopt_long(argc, argv, "f:hp:u:v:l", opts, NULL);
+        int opt = getopt_long(argc, argv, "f:hp:u:vl", opts, NULL);
         if (opt == -1)
             break;
 
@@ -273,7 +273,14 @@ parse_options(int argc, char** argv)
                 opt_font = optarg;
                 break;
             case 'h':
-                die("usage: "PROGNAME" [-hvl] [-p passchars] [-f fontname] [-u username]\n");
+                die("usage: "PROGNAME" [-hvd] [-p passchars] [-f font] [-u username]\n"
+                    "   -h: show this help page and exit\n"
+                    "   -v: show version info and exit\n"
+                    "   -l: derange the password length indicator\n"
+                    "   -p passchars: characters used to obfuscate the password\n"
+                    "   -f font: X logical font description\n"
+                    "   -u username: user name to show\n"
+                );
                 break;
             case 'p':
                 opt_passchar = optarg;
