@@ -36,18 +36,6 @@ For manual installation just install dependencies, checkout and make:
     ./sxlock
 
 
-Running sxlock
--------------
-
-Simply invoking the sxlock command starts the display locker with default settings.
-
-Custom settings:
-
-    -f <font description>: modify the font.
-    -p <password characters>: modify the characters displayed when the user enters his password. This can be a sequence of characters to create a fake password.
-    -u <username>: a user name to be displayed at the lock screen.
-    -l : Hide password length when typing
-
 Hooking into systemd events
 ---------------------------
 
