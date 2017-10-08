@@ -44,6 +44,7 @@ When using [systemd](http://freedesktop.org/wiki/Software/systemd/), you can use
 ```ini
 [Unit]
 Description=Lock X session using sxlock
+Before=sleep.target
 
 [Service]
 User=<username>
