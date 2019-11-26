@@ -283,7 +283,12 @@ parse_options(int argc, char** argv)
                 );
                 break;
             case 'p':
-                opt_passchar = optarg;
+                if(strlen(optarg) >= 1) {
+                    opt_passchar = optarg;
+                }
+                else {
+                    fprintf(stderr, "Warning: -p must be 1 character at least, using the default.\n");
+                }
                 break;
             case 'u':
                 opt_username = optarg;
