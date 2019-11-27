@@ -68,6 +68,7 @@ static char* opt_font;
 static char* opt_username;
 static char* opt_passchar;
 static Bool  opt_hidelength;
+static Bool  opt_usedpms;
 
 /* need globals for signal handling */
 Display *dpy;
@@ -259,12 +260,13 @@ parse_options(int argc, char** argv)
         { "passchar",       required_argument, 0, 'p' },
         { "username",       required_argument, 0, 'u' },
         { "hidelength",     no_argument,       0, 'l' },
+        { "nodpms",         no_argument,       0, 'd' },
         { "version",        no_argument,       0, 'v' },
         { 0, 0, 0, 0 },
     };
 
     for (;;) {
-        int opt = getopt_long(argc, argv, "f:hp:u:vl", opts, NULL);
+        int opt = getopt_long(argc, argv, "f:hp:u:vld", opts, NULL);
         if (opt == -1)
             break;
 
@@ -277,6 +279,7 @@ parse_options(int argc, char** argv)
                     "   -h: show this help page and exit\n"
                     "   -v: show version info and exit\n"
                     "   -l: derange the password length indicator\n"
+                    "   -d: do not handle DPMS\n"
                     "   -p passchars: characters used to obfuscate the password\n"
                     "   -f font: X logical font description\n"
                     "   -u username: user name to show\n"
@@ -295,6 +298,9 @@ parse_options(int argc, char** argv)
                 break;
             case 'l':
                 opt_hidelength = True;
+                break;
+            case 'd':
+                opt_usedpms = False;
                 break;
             case 'v':
                 die(PROGNAME"-"VERSION", © 2013 Jakub Klinkovský\n");
@@ -329,6 +335,7 @@ main(int argc, char** argv) {
     opt_font = "-misc-fixed-medium-r-*--17-120-*-*-*-*-iso8859-1";
     opt_username = username;
     opt_hidelength = False;
+    opt_usedpms = True;
 
     if (!parse_options(argc, argv))
         exit(EXIT_FAILURE);
@@ -468,7 +475,7 @@ main(int argc, char** argv) {
         die("Could not lock page in memory, check RLIMIT_MEMLOCK\n");
 
     /* handle dpms */
-    using_dpms = DPMSCapable(dpy);
+    using_dpms = opt_usedpms && DPMSCapable(dpy);
     if (using_dpms) {
         /* save dpms timeouts to restore on exit */
         DPMSGetTimeouts(dpy, &dpms_original.standby, &dpms_original.suspend, &dpms_original.off);
