@@ -388,10 +388,11 @@ main(int argc, char** argv) {
         int i = 0;
         while (output_info->connection != RR_Connected || output_info->crtc == 0) {
             XRRFreeOutputInfo(output_info);
-            output_info = XRRGetOutputInfo(dpy, screen, screen->outputs[i++]);
+            output_info = XRRGetOutputInfo(dpy, screen, screen->outputs[i]);
             fprintf(stderr, "Warning: no primary output detected, trying %s.\n", output_info->name);
             if (i == screen->noutput)
                 die("error: no connected output detected.\n");
+            i++;
         }
 
         crtc_info = XRRGetCrtcInfo (dpy, screen, output_info->crtc);
