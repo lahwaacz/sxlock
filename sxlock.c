@@ -49,6 +49,9 @@
     #define UNUSED(x) UNUSED_ ## x
 #endif
 
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
+#define MAX(X, Y) (((X) > (Y)) ? (X) : (Y))
+
 typedef struct Dpms {
     BOOL state;
     CARD16 level;  // why?
@@ -162,19 +165,21 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
 
     XSync(dpy, False);
 
+    /* text properties */
+    XGlyphInfo ext_username, ext_pass, ext_authfail;
+    XftTextExtents8(dpy, font, (XftChar8*) username, strlen(username), &ext_username);
+
     /* distance of text from the line */
-    int line_dist = 15;
+    int line_dist = font->height;
 
     /* define base coordinates - middle of screen */
     int base_x = info->output_x + info->output_width / 2;
     int base_y = info->output_y + info->output_height / 2;    /* y-position of the line */
 
     /* not changed in the loop */
-    int line_x_left = base_x - info->output_width / 8;
-    int line_x_right = base_x + info->output_width / 8;
-
-    /* text properties */
-    XGlyphInfo ext_username, ext_pass, ext_authfail;
+    int line_width = MIN(info->output_width, MAX(info->output_width / 4, ext_username.width + ext_username.height));
+    int line_x_left = base_x - line_width / 2;
+    int line_x_right = base_x + line_width / 2;
 
     /* main event loop */
     while(running && !XNextEvent(dpy, &event)) {
@@ -183,8 +188,6 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
 
         /* update window if no events pending */
         if (!XPending(dpy)) {
-            int x;
-
             /* clear old username */
             XClearArea(dpy, w, info->output_x, font->ascent + font->descent, info->output_width, base_y - line_dist, False);
 
@@ -192,8 +195,7 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
             XClearArea(dpy, w, info->output_x, base_y + line_dist, info->output_width, font->ascent + font->descent, False);
 
             /* draw username and line */
-            XftTextExtents8(dpy, font, (XftChar8*) username, strlen(username), &ext_username);
-            x = base_x - ext_username.width / 2;
+            int x = base_x - ext_username.width / 2;
             XftDrawString8(xftdraw, &white, font, x, base_y - line_dist, (XftChar8*) username, strlen(username));
             XDrawLine(dpy, w, gc, line_x_left, base_y, line_x_right, base_y);
 
