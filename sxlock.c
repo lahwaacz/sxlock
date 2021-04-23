@@ -286,7 +286,7 @@ parse_options(int argc, char** argv)
                     "   -l: derange the password length indicator\n"
                     "   -d: do not handle DPMS\n"
                     "   -p passchars: characters used to obfuscate the password\n"
-                    "   -f font: X logical font description\n"
+                    "   -f font name (fontconfig pattern string\n"
                     "   -u username: user name to show\n"
                 );
                 break;
@@ -339,7 +339,7 @@ main(int argc, char** argv) {
 
     /* set default values for command-line arguments */
     opt_passchar = "*";
-    opt_font = "-misc-fixed-medium-r-*--17-120-*-*-*-*-iso8859-1";
+    opt_font = "sans-24";
     opt_username = username;
     opt_hidelength = False;
     opt_usedpms = True;
@@ -367,7 +367,7 @@ main(int argc, char** argv) {
         die("cannot open dpy\n");
 
     if (!(font = XftFontOpenName(dpy, DefaultScreen(dpy), opt_font)))
-        die("error: could not find font. Try using a full description.\n");
+        die("error: Xft could not open font %s.\n", opt_font);
 
     screen_num = DefaultScreen(dpy);
     root = DefaultRootWindow(dpy);
