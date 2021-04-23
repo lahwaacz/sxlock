@@ -204,7 +204,7 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
                 int lendisp = len;
                 if (hidelength && len > 0)
                     lendisp += (passdisp[len] * len) % 5;
-                XftTextExtents8(dpy, font, (XftChar8 *) passdisp, lendisp, &ext_pass);
+                XftTextExtents8(dpy, font, (XftChar8 *) passdisp, lendisp % 256, &ext_pass);
                 x = base_x - ext_pass.width / 2;
                 XftDrawString8(xftdraw, &white, font, x, base_y + font->ascent + 20, (XftChar8 *) passdisp, lendisp % 256);
             }
