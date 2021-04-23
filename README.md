@@ -20,6 +20,7 @@ Requirements
  - libX11 (Xlib headers)
  - libXext (X11 extensions library, for DPMS)
  - libXrandr (RandR support)
+ - libXft
  - PAM
 
 
