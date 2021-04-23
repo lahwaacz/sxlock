@@ -192,24 +192,24 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
             XClearArea(dpy, w, info->output_x, base_y + line_dist, info->output_width, font->ascent + font->descent, False);
 
             /* draw username and line */
-            XftTextExtents8(dpy, font, (XftChar8 *) username, strlen(username), &ext_username);
+            XftTextExtents8(dpy, font, (XftChar8*) username, strlen(username), &ext_username);
             x = base_x - ext_username.width / 2;
-            XftDrawString8(xftdraw, &white, font, x, base_y - line_dist, (XftChar8 *) username, strlen(username));
+            XftDrawString8(xftdraw, &white, font, x, base_y - line_dist, (XftChar8*) username, strlen(username));
             XDrawLine(dpy, w, gc, line_x_left, base_y, line_x_right, base_y);
 
             /* draw new passdisp or 'auth failed' */
             if (failed) {
                 char sauthfail[22]= "authentication failed";
-                XftTextExtents8(dpy, font, (XftChar8 *) sauthfail, strlen(sauthfail), &ext_authfail);
+                XftTextExtents8(dpy, font, (XftChar8*) sauthfail, strlen(sauthfail), &ext_authfail);
                 x = base_x - ext_authfail.width / 2;
-                XftDrawString8(xftdraw, &red, font, x, base_y + font->ascent + line_dist, (XftChar8 *) sauthfail, 21);
+                XftDrawString8(xftdraw, &red, font, x, base_y + font->ascent + line_dist, (XftChar8*) sauthfail, 21);
             } else {
                 int lendisp = len;
                 if (hidelength && len > 0)
                     lendisp += (passdisp[len] * len) % 5;
-                XftTextExtents8(dpy, font, (XftChar8 *) passdisp, lendisp % 256, &ext_pass);
+                XftTextExtents8(dpy, font, (XftChar8*) passdisp, lendisp % 256, &ext_pass);
                 x = base_x - ext_pass.width / 2;
-                XftDrawString8(xftdraw, &white, font, x, base_y + font->ascent + line_dist, (XftChar8 *) passdisp, lendisp % 256);
+                XftDrawString8(xftdraw, &white, font, x, base_y + font->ascent + line_dist, (XftChar8*) passdisp, lendisp % 256);
             }
         }
 
