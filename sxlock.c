@@ -233,6 +233,11 @@ main_loop(Window w, GC gc, XftDraw* xftdraw, XftFont* font, WindowPositionInfo* 
                     password[len] = 0;
                     if (pam_authenticate(pam_handle, 0) == PAM_SUCCESS) {
                         clear_password_memory();
+
+                        /* refresh PAM credentials (for example, any kerberos tickets will be updated,
+                         * modules like pam_gnupg will forward the password to a caching agent, etc. */
+                        pam_setcred(pam_handle, PAM_REFRESH_CRED);
+
                         running = False;
                     } else {
                         failed = True;
@@ -531,6 +536,9 @@ main(int argc, char** argv) {
         if (!dpms_original.state)
             DPMSDisable(dpy);
     }
+
+    /* clean up PAM handle */
+    pam_end(pam_handle, PAM_SUCCESS);
 
     XUngrabPointer(dpy, CurrentTime);
     XftFontClose(dpy, font);
