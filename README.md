@@ -31,7 +31,7 @@ Arch Linux users can install this package from the [AUR](https://aur.archlinux.o
 
 For manual installation just install dependencies, checkout and make:
 
-    git clone git://github.com/lahwaacz/sxlock.git
+    git clone https://github.com/lahwaacz/sxlock.git
     cd ./sxlock
     make
     ./sxlock
