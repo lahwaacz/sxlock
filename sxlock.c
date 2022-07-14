@@ -386,7 +386,7 @@ main(int argc, char** argv) {
         XRROutputInfo* output_info = NULL;
         XRRCrtcInfo* crtc_info = NULL;
 
-        screen = XRRGetScreenResources (dpy, root);
+        screen = XRRGetScreenResourcesCurrent (dpy, root);
         output = XRRGetOutputPrimary(dpy, root);
 
         /* When there is no primary output, the return value of XRRGetOutputPrimary
